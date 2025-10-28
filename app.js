@@ -10,6 +10,8 @@ const guestView = document.getElementById('guestView');
 const userDashboard = document.getElementById('userDashboard');
 const navGuest = document.getElementById('nav-guest');
 const navUser = document.getElementById('nav-user');
+const navbarToggle = document.getElementById('navbarToggle');
+const navbarNav = document.getElementById('navbarNav');
 const userMenuBtn = document.getElementById('userMenuBtn');
 const userDropdown = document.getElementById('userDropdown');
 const signOutBtn = document.getElementById('signOutBtn');
@@ -19,6 +21,20 @@ const closeModalBtn = document.getElementById('closeModalBtn');
 const cancelModalBtn = document.getElementById('cancelModalBtn');
 const createMeetingForm = document.getElementById('createMeetingForm');
 const meetingTabs = document.querySelectorAll('.meeting-tab');
+const profileForm = document.getElementById('profileForm');
+const resetProfileBtn = document.getElementById('resetProfileBtn');
+const profileNameInput = document.getElementById('profileName');
+const profileEmailInput = document.getElementById('profileEmail');
+const avatarUrlInput = document.getElementById('avatarUrl');
+const profileTimezoneSelect = document.getElementById('profileTimezone');
+const profileBioInput = document.getElementById('profileBio');
+const settingsForm = document.getElementById('settingsForm');
+const resetSettingsBtn = document.getElementById('resetSettingsBtn');
+const settingThemeToggle = document.getElementById('settingTheme');
+const settingNotificationsToggle = document.getElementById('settingNotifications');
+const settingWaitingRoomToggle = document.getElementById('settingWaitingRoom');
+const settingRecordingToggle = document.getElementById('settingRecording');
+const navLogoutBtn = document.getElementById('navLogoutBtn');
 
 // Initialize App
 async function initializeApp() {
@@ -48,6 +64,8 @@ function showGuestView() {
     userDashboard.style.display = 'none';
     navGuest.style.display = 'flex';
     navUser.style.display = 'none';
+    closeMobileNav();
+    document.body.classList.remove('dashboard-dark');
 }
 
 // Load User Dashboard
@@ -71,18 +89,19 @@ async function loadUserDashboard() {
         // Generate initials avatar
         const initials = userName.charAt(0).toUpperCase();
         userAvatar.style.display = 'flex';
-        userAvatar.style.alignItems = 'center';
         userAvatar.style.justifyContent = 'center';
         userAvatar.style.color = 'white';
         userAvatar.style.fontWeight = '700';
         userAvatar.textContent = initials;
     }
-    
+
+    await loadProfileAndSettings();
+    initializeDashboardInteractivity();
+
     // Load user meetings
     await loadUserMeetings();
 }
 
-// Load User Meetings
 async function loadUserMeetings() {
     try {
         const { data, error } = await DatabaseService.getUserMeetings(currentUser.id);
@@ -94,6 +113,286 @@ async function loadUserMeetings() {
     } catch (error) {
         console.error('Error loading meetings:', error);
         showNotification('Failed to load meetings', 'error');
+    }
+}
+
+// ==================== PROFILE & SETTINGS ====================
+
+const TIMEZONE_OPTIONS = [
+    { value: 'UTC', label: 'UTC' },
+    { value: 'America/Los_Angeles', label: 'Pacific Time (UTC-08:00)' },
+    { value: 'America/Denver', label: 'Mountain Time (UTC-07:00)' },
+    { value: 'America/Chicago', label: 'Central Time (UTC-06:00)' },
+    { value: 'America/New_York', label: 'Eastern Time (UTC-05:00)' },
+    { value: 'Europe/London', label: 'London (UTC+00:00)' },
+    { value: 'Europe/Berlin', label: 'Central Europe (UTC+01:00)' },
+    { value: 'Asia/Kolkata', label: 'India (UTC+05:30)' },
+    { value: 'Asia/Singapore', label: 'Singapore (UTC+08:00)' },
+    { value: 'Australia/Sydney', label: 'Sydney (UTC+10:00)' }
+];
+
+const DEFAULT_SETTINGS = {
+    theme: false,
+    notifications: true,
+    waitingRoom: true,
+    recording: false
+};
+
+let currentProfileData = null;
+let currentSettings = { ...DEFAULT_SETTINGS };
+let dashboardInteractivityInitialized = false;
+
+function populateTimezoneOptions(selectedValue = 'UTC') {
+    if (!profileTimezoneSelect) return;
+    profileTimezoneSelect.innerHTML = '';
+    TIMEZONE_OPTIONS.forEach(option => {
+        const opt = document.createElement('option');
+        opt.value = option.value;
+        opt.textContent = option.label;
+        if (option.value === selectedValue) {
+            opt.selected = true;
+        }
+        profileTimezoneSelect.appendChild(opt);
+    });
+}
+
+function getStoredSettings() {
+    try {
+        const stored = localStorage.getItem('swtmeet_settings');
+        if (!stored) return null;
+        return { ...DEFAULT_SETTINGS, ...JSON.parse(stored) };
+    } catch (error) {
+        console.warn('Failed to parse stored settings', error);
+        return null;
+    }
+}
+
+function storeSettings(settings) {
+    try {
+        localStorage.setItem('swtmeet_settings', JSON.stringify(settings));
+    } catch (error) {
+        console.warn('Failed to persist settings locally', error);
+    }
+}
+
+function applyTheme(isDarkMode) {
+    document.body.classList.toggle('dashboard-dark', Boolean(isDarkMode));
+}
+
+function applySettingsToForm(settings) {
+    if (!settingsForm) return;
+    settingThemeToggle.checked = !!settings.theme;
+    settingNotificationsToggle.checked = !!settings.notifications;
+    settingWaitingRoomToggle.checked = !!settings.waitingRoom;
+    settingRecordingToggle.checked = !!settings.recording;
+    applyTheme(settings.theme);
+}
+
+async function loadProfileAndSettings() {
+    if (!currentUser) return;
+
+    let profileRecord = null;
+
+    try {
+        const { data, error } = await DatabaseService.getUserProfile(currentUser.id);
+
+        if (error && error.code !== 'PGRST116') {
+            throw error;
+        }
+
+        profileRecord = data || null;
+
+        if (!profileRecord) {
+            const fallbackName = currentUser.user_metadata?.full_name || currentUser.email.split('@')[0];
+            const { data: createdProfile, error: createError } = await DatabaseService.createUserProfile(
+                currentUser.id,
+                currentUser.email,
+                fallbackName,
+                currentUser.user_metadata?.avatar_url || null
+            );
+
+            if (createError) {
+                console.error('Error creating profile record:', createError);
+            }
+
+            profileRecord = createdProfile?.[0] || null;
+        }
+    } catch (error) {
+        console.error('Failed to load profile data:', error);
+        showNotification('Unable to load full profile. Using defaults.', 'error');
+        profileRecord = null;
+    }
+
+    currentProfileData = profileRecord;
+    populateProfileForm();
+
+    const settingsFromProfile = currentProfileData?.settings && typeof currentProfileData.settings === 'object'
+        ? currentProfileData.settings
+        : null;
+
+    const mergedSettings = settingsFromProfile || getStoredSettings() || DEFAULT_SETTINGS;
+    currentSettings = { ...DEFAULT_SETTINGS, ...mergedSettings };
+    applySettingsToForm(currentSettings);
+    storeSettings(currentSettings);
+}
+
+function populateProfileForm() {
+    if (!profileForm || !currentUser) return;
+
+    const fullName = currentProfileData?.full_name || currentUser.user_metadata?.full_name || currentUser.email.split('@')[0];
+    const email = currentUser.email;
+    const avatar = currentProfileData?.avatar_url || currentUser.user_metadata?.avatar_url || '';
+    const timezone = currentProfileData?.timezone || currentUser.user_metadata?.timezone || 'UTC';
+    const bio = currentProfileData?.bio || currentUser.user_metadata?.bio || '';
+
+    profileNameInput.value = fullName;
+    profileEmailInput.value = email;
+    avatarUrlInput.value = avatar;
+    profileBioInput.value = bio;
+    populateTimezoneOptions(timezone);
+}
+
+function initializeDashboardInteractivity() {
+    if (dashboardInteractivityInitialized) return;
+
+    document.querySelectorAll('.toggle-section').forEach(button => {
+        const section = button.closest('.dashboard-section');
+        if (!section) return;
+        const targetSelector = button.getAttribute('data-target');
+        const target = targetSelector ? document.querySelector(targetSelector) : null;
+
+        if (section.classList.contains('open') && target) {
+            target.style.maxHeight = `${target.scrollHeight}px`;
+        }
+
+        button.addEventListener('click', () => {
+            const willOpen = !section.classList.contains('open');
+            section.classList.toggle('open', willOpen);
+            button.setAttribute('aria-expanded', String(willOpen));
+            if (target) {
+                target.style.maxHeight = willOpen ? `${target.scrollHeight}px` : '0px';
+            }
+        });
+    });
+
+    profileForm?.addEventListener('submit', handleProfileSubmit);
+    resetProfileBtn?.addEventListener('click', (event) => {
+        event.preventDefault();
+        populateProfileForm();
+        showNotification('Profile reverted to saved values', 'info');
+    });
+
+    settingsForm?.addEventListener('submit', handleSettingsSubmit);
+    resetSettingsBtn?.addEventListener('click', (event) => {
+        event.preventDefault();
+        currentSettings = { ...DEFAULT_SETTINGS };
+        applySettingsToForm(currentSettings);
+        storeSettings(currentSettings);
+        showNotification('Settings restored to defaults', 'info');
+    });
+
+    settingThemeToggle?.addEventListener('change', () => {
+        applyTheme(settingThemeToggle.checked);
+    });
+
+    dashboardInteractivityInitialized = true;
+}
+
+async function handleProfileSubmit(event) {
+    event.preventDefault();
+    if (!currentUser) return;
+
+    const fullName = profileNameInput.value.trim();
+    const avatarUrl = avatarUrlInput.value.trim() || null;
+    const timezone = profileTimezoneSelect.value;
+    const bio = profileBioInput.value.trim();
+
+    if (!fullName) {
+        showNotification('Name is required', 'error');
+        return;
+    }
+
+    showLoader();
+
+    try {
+        const metadataPayload = {
+            full_name: fullName,
+            avatar_url: avatarUrl,
+            timezone,
+            bio
+        };
+
+        const profilePayload = {
+            full_name: fullName,
+            avatar_url: avatarUrl,
+            timezone,
+            bio,
+            updated_at: new Date().toISOString()
+        };
+
+        const [metadataResult, profileResult] = await Promise.all([
+            AuthService.updateUserMetadata(metadataPayload),
+            DatabaseService.updateUserProfile(currentUser.id, profilePayload)
+        ]);
+
+        if (metadataResult.error) throw metadataResult.error;
+        if (profileResult.error) throw profileResult.error;
+
+        const updatedProfileRow = profileResult.data?.[0];
+        currentProfileData = updatedProfileRow ? updatedProfileRow : { ...(currentProfileData || {}), ...profilePayload };
+
+        if (metadataResult.data?.user) {
+            currentUser = metadataResult.data.user;
+        } else {
+            currentUser.user_metadata = {
+                ...currentUser.user_metadata,
+                ...metadataPayload
+            };
+        }
+
+        document.getElementById('userName').textContent = fullName;
+        document.getElementById('dashboardUserName').textContent = fullName;
+
+        populateProfileForm();
+        showNotification('Profile updated successfully', 'success');
+    } catch (error) {
+        console.error('Error updating profile:', error);
+        showNotification('Failed to update profile', 'error');
+    } finally {
+        hideLoader();
+    }
+}
+
+async function handleSettingsSubmit(event) {
+    event.preventDefault();
+    if (!currentUser) return;
+
+    const updatedSettings = {
+        theme: settingThemeToggle.checked,
+        notifications: settingNotificationsToggle.checked,
+        waitingRoom: settingWaitingRoomToggle.checked,
+        recording: settingRecordingToggle.checked
+    };
+
+    showLoader();
+
+    try {
+        const { error } = await DatabaseService.updateUserSettings(currentUser.id, updatedSettings);
+        if (error) throw error;
+
+        currentSettings = { ...updatedSettings };
+        if (currentProfileData) {
+            currentProfileData = { ...currentProfileData, settings: { ...updatedSettings } };
+        }
+
+        applySettingsToForm(currentSettings);
+        storeSettings(currentSettings);
+        showNotification('Preferences saved', 'success');
+    } catch (error) {
+        console.error('Error saving settings:', error);
+        showNotification('Failed to save preferences', 'error');
+    } finally {
+        hideLoader();
     }
 }
 
@@ -305,10 +604,13 @@ document.addEventListener('click', (e) => {
     if (userDropdown && !userDropdown.contains(e.target) && e.target !== userMenuBtn) {
         userDropdown.classList.remove('show');
     }
+    if (navbarNav && navbarToggle && !navbarNav.contains(e.target) && e.target !== navbarToggle) {
+        closeMobileNav();
+    }
 });
 
 // Sign Out
-signOutBtn?.addEventListener('click', async () => {
+async function handleSignOut() {
     showLoader();
     try {
         await AuthService.signOut();
@@ -322,7 +624,10 @@ signOutBtn?.addEventListener('click', async () => {
     } finally {
         hideLoader();
     }
-});
+}
+
+signOutBtn?.addEventListener('click', handleSignOut);
+navLogoutBtn?.addEventListener('click', handleSignOut);
 
 // Create Meeting Modal
 createMeetingBtn?.addEventListener('click', () => {
@@ -506,3 +811,53 @@ AuthService.onAuthStateChange((event, session) => {
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', initializeApp);
+
+// ==================== NAVIGATION (MOBILE) ====================
+
+function toggleMobileNav() {
+    if (!navbarNav || !navbarToggle) return;
+    const isOpen = navbarNav.classList.toggle('open');
+    navbarToggle.classList.toggle('active', isOpen);
+    document.body.classList.toggle('nav-open', isOpen);
+    navbarNav.style.maxHeight = isOpen ? `${navbarNav.scrollHeight}px` : '0px';
+}
+
+function closeMobileNav() {
+    if (!navbarNav || !navbarToggle) return;
+    navbarNav.classList.remove('open');
+    navbarToggle.classList.remove('active');
+    document.body.classList.remove('nav-open');
+    navbarNav.style.maxHeight = '0px';
+}
+
+navbarToggle?.addEventListener('click', (event) => {
+    event.stopPropagation();
+    toggleMobileNav();
+});
+
+const navInteractiveSelectors = '.navbar-nav .nav-link, .navbar-nav .nav-button-secondary, .navbar-nav .nav-button-primary';
+
+document.querySelectorAll(navInteractiveSelectors).forEach(element => {
+    element.addEventListener('click', () => {
+        closeMobileNav();
+    });
+});
+
+document.querySelectorAll('.dropdown-item[data-section]').forEach(item => {
+    item.addEventListener('click', () => {
+        const targetId = item.getAttribute('data-section');
+        const section = document.getElementById(targetId);
+        if (section) {
+            section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    });
+});
+
+window.addEventListener('resize', () => {
+    if (window.innerWidth > 768) {
+        closeMobileNav();
+        if (navbarNav) {
+            navbarNav.style.maxHeight = '';
+        }
+    }
+});

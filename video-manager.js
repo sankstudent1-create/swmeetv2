@@ -261,19 +261,71 @@ let screenShareSenders = {}; // Track screen share senders per peer
 
 async function startScreenShareBroadcast() {
     try {
-        // Get screen share stream with audio
-        screenShareStream = await navigator.mediaDevices.getDisplayMedia({
-            video: {
+        // Check if device/browser exposes getDisplayMedia
+        const supportsDisplayMedia = !!(navigator.mediaDevices && typeof navigator.mediaDevices.getDisplayMedia === 'function');
+
+        if (!supportsDisplayMedia) {
+            if (window.showNotification) {
+                window.showNotification('Screen sharing is not supported on this browser. Try updating your browser or using the latest Chrome/Safari.', 'error');
+            }
+            throw new Error('Screen sharing not supported on this device/browser');
+        }
+
+        // Detect platform for tailored constraints
+        const userAgent = navigator.userAgent || '';
+        const isIOS = /iPad|iPhone|iPod/.test(userAgent);
+        const isAndroid = /Android/.test(userAgent);
+
+        const videoConstraints = (() => {
+            if (isIOS) {
+                // Safari on iOS only supports tab/application capture with basic width/height
+                return {
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 },
+                    frameRate: { ideal: 30 }
+                };
+            }
+            if (isAndroid) {
+                return {
+                    preferCurrentTab: true,
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 },
+                    frameRate: { ideal: 30 }
+                };
+            }
+            return {
                 cursor: "always",
                 width: { ideal: 1920 },
                 height: { ideal: 1080 }
-            },
-            audio: {
+            };
+        })();
+
+        const audioConstraints = (() => {
+            if (isIOS) {
+                return false; // iOS Safari does not expose system audio yet
+            }
+            if (isAndroid) {
+                return {
+                    echoCancellation: true,
+                    noiseSuppression: true
+                };
+            }
+            return {
                 echoCancellation: true,
                 noiseSuppression: true,
                 sampleRate: 44100
-            }
+            };
+        })();
+
+        // Get screen share stream with platform-appropriate constraints
+        screenShareStream = await navigator.mediaDevices.getDisplayMedia({
+            video: videoConstraints,
+            audio: audioConstraints
         });
+
+        if (isIOS && window.showNotification) {
+            window.showNotification('Sharing from iOS Safari: audio capture is not yet supported. Video will still be shared.', 'info');
+        }
         
         // Display locally
         displayScreenShare(screenShareStream, 'You');

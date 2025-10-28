@@ -67,6 +67,14 @@ const AuthService = {
         return { error };
     },
 
+    // Update user metadata (full name, avatar, etc.)
+    async updateUserMetadata(metadata) {
+        const { data, error } = await supabase.auth.updateUser({
+            data: metadata
+        });
+        return { data, error };
+    },
+
     // Listen to auth state changes
     onAuthStateChange(callback) {
         return supabase.auth.onAuthStateChange(callback);
@@ -107,6 +115,19 @@ const DatabaseService = {
         const { data, error } = await supabase
             .from('users')
             .update(updates)
+            .eq('id', userId)
+            .select();
+        return { data, error };
+    },
+
+    // Update user settings JSON
+    async updateUserSettings(userId, settings) {
+        const { data, error } = await supabase
+            .from('users')
+            .update({
+                settings,
+                updated_at: new Date().toISOString()
+            })
             .eq('id', userId)
             .select();
         return { data, error };

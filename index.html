@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SWTMeet - Seamless Video Conferencing</title>
+    <title>SWTMeet - Video Meeting Platform</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
@@ -19,19 +20,32 @@
         <div class="container">
             <a href="index.html" class="navbar-brand">
                 <img src="SWTlogo.jpg" alt="SWTMeet Logo" class="navbar-logo">
+                <span class="navbar-brand-text">SWTMeet</span>
             </a>
-            <nav class="navbar-nav">
-                <!-- Show when NOT logged in -->
-                <div id="nav-guest" class="nav-group">
+            <button class="navbar-toggle" id="navbarToggle" aria-label="Toggle navigation">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+            <nav class="navbar-nav" id="navbarNav">
+                <div class="nav-section nav-links">
                     <a href="#features" class="nav-link">Features</a>
                     <a href="#pricing" class="nav-link">Pricing</a>
                     <a href="#contact" class="nav-link">Contact</a>
+                </div>
+                <div class="nav-section nav-actions nav-actions-guest" id="nav-guest">
                     <a href="auth.html" class="nav-button-secondary">Log In</a>
                     <a href="auth.html" class="nav-button-primary">Sign Up Free</a>
                 </div>
-                <!-- Show when logged in -->
-                <div id="nav-user" class="nav-group" style="display: none;">
-                    <a href="#features" class="nav-link">My Meetings</a>
+                <div class="nav-section nav-actions nav-actions-user" id="nav-user" style="display: none;">
+                    <a href="#upcomingMeetings" class="nav-link nav-dashboard-link">My Meetings</a>
+                    <button class="nav-icon-button logout-button" id="navLogoutBtn" type="button" aria-label="Sign Out">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+                            <polyline points="10 17 15 12 10 7" />
+                            <line x1="15" y1="12" x2="3" y2="12" />
+                        </svg>
+                    </button>
                     <div class="user-menu">
                         <button class="user-menu-btn" id="userMenuBtn">
                             <img src="" alt="" class="user-avatar" id="userAvatar">
@@ -41,8 +55,8 @@
                             </svg>
                         </button>
                         <div class="user-dropdown" id="userDropdown">
-                            <a href="#profile" class="dropdown-item">Profile</a>
-                            <a href="#settings" class="dropdown-item">Settings</a>
+                            <button class="dropdown-item" data-section="profile">Profile</button>
+                            <button class="dropdown-item" data-section="settings">Settings</button>
                             <hr class="dropdown-divider">
                             <button class="dropdown-item" id="signOutBtn">Sign Out</button>
                         </div>
@@ -68,13 +82,13 @@
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
                         <path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/>
                     </svg>
-                    Sign In to Start Meeting
+                    Sign In to Start New Meeting
                 </a>
             </div>
             
             <div class="hero-visual">
-                <img src="SWTlogo.jpg" alt="SWTMeet Abstract Graphic" class="hero-image-placeholder">
-                <p>Your product visual or illustration here</p>
+                <img src="swtlogo1.jpg" alt="SWTMeet Abstract Graphic" class="hero-image-placeholder">
+                <p>Enhance your experience with SWTMeet</p>
             </div>
         </div>
     </main>
@@ -158,6 +172,103 @@
                     </div>
                     <div id="endedMeetingsList"></div>
                 </div>
+            </div>
+
+            <!-- Profile & Settings -->
+            <div class="dashboard-sections">
+                <section class="dashboard-section profile-section open" id="profile">
+                    <button class="section-header toggle-section" type="button" data-target="#profileSectionBody" aria-expanded="true">
+                        <div class="section-header-text">
+                            <h2>Profile</h2>
+                            <p>Update how other participants see you.</p>
+                        </div>
+                        <span class="section-chevron" aria-hidden="true"></span>
+                    </button>
+                    <div class="section-body" id="profileSectionBody">
+                        <form id="profileForm" class="dashboard-form">
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label for="profileName">Full Name</label>
+                                    <input type="text" id="profileName" placeholder="Your full name" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="profileEmail">Email</label>
+                                    <input type="email" id="profileEmail" placeholder="Email address" disabled>
+                                </div>
+                            </div>
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label for="avatarUrl">Avatar URL</label>
+                                    <input type="url" id="avatarUrl" placeholder="https://example.com/avatar.png">
+                                </div>
+                                <div class="form-group">
+                                    <label for="profileTimezone">Timezone</label>
+                                    <select id="profileTimezone"></select>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="profileBio">About You</label>
+                                <textarea id="profileBio" rows="3" placeholder="Short bio visible to meeting participants"></textarea>
+                            </div>
+                            <div class="form-actions">
+                                <button type="submit" class="btn-primary">Save Profile</button>
+                                <button type="button" class="btn-secondary" id="resetProfileBtn">Reset</button>
+                            </div>
+                        </form>
+                    </div>
+                </section>
+
+                <section class="dashboard-section settings-section" id="settings">
+                    <button class="section-header toggle-section" type="button" data-target="#settingsSectionBody" aria-expanded="false">
+                        <div class="section-header-text">
+                            <h2>Meeting Preferences</h2>
+                            <p>Configure default options for new meetings.</p>
+                        </div>
+                        <span class="section-chevron" aria-hidden="true"></span>
+                    </button>
+                    <div class="section-body" id="settingsSectionBody">
+                        <form id="settingsForm" class="dashboard-form">
+                            <div class="settings-grid">
+                                <label class="toggle">
+                                    <input type="checkbox" id="settingTheme">
+                                    <span class="toggle-slider"></span>
+                                    <div class="toggle-label">
+                                        <strong>Dark mode dashboard</strong>
+                                        <small>Switch the dashboard interface to a darker theme.</small>
+                                    </div>
+                                </label>
+                                <label class="toggle">
+                                    <input type="checkbox" id="settingNotifications" checked>
+                                    <span class="toggle-slider"></span>
+                                    <div class="toggle-label">
+                                        <strong>Email notifications</strong>
+                                        <small>Send me email when participants join my meeting.</small>
+                                    </div>
+                                </label>
+                                <label class="toggle">
+                                    <input type="checkbox" id="settingWaitingRoom" checked>
+                                    <span class="toggle-slider"></span>
+                                    <div class="toggle-label">
+                                        <strong>Enable waiting room</strong>
+                                        <small>Automatically require host approval for new participants.</small>
+                                    </div>
+                                </label>
+                                <label class="toggle">
+                                    <input type="checkbox" id="settingRecording">
+                                    <span class="toggle-slider"></span>
+                                    <div class="toggle-label">
+                                        <strong>Auto-start recording</strong>
+                                        <small>Start recordings automatically when a meeting begins.</small>
+                                    </div>
+                                </label>
+                            </div>
+                            <div class="form-actions">
+                                <button type="submit" class="btn-primary">Save Preferences</button>
+                                <button type="button" class="btn-secondary" id="resetSettingsBtn">Restore Defaults</button>
+                            </div>
+                        </form>
+                    </div>
+                </section>
             </div>
         </div>
     </main>

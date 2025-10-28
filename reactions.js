@@ -44,8 +44,9 @@ window.sendReaction = async function(emoji) {
         return;
     }
     
-    const userName = currentUser?.user_metadata?.full_name || 
-                     currentUser?.email?.split('@')[0] || 
+    const userName = window.currentUser?.user_metadata?.full_name || 
+                     window.currentUser?.email?.split('@')[0] || 
+                     window.participants?.find(p => p.id === window.currentParticipantId)?.guest_name ||
                      'Guest';
     
     // Send reaction to all participants
@@ -55,7 +56,7 @@ window.sendReaction = async function(emoji) {
         payload: {
             emoji: emoji,
             userName: userName,
-            participantId: currentParticipantId,
+            participantId: window.currentParticipantId,
             timestamp: Date.now()
         }
     });
@@ -95,7 +96,9 @@ function displayReaction(emoji, userName) {
     }
     
     // Show notification
-    showNotification(`${userName} reacted ${emoji}`, 'info');
+    if (window.showNotification) {
+        window.showNotification(`${userName} reacted ${emoji}`, 'info');
+    }
 }
 
 // ==================== TOGGLE REACTIONS MENU ====================
